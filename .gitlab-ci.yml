@@ -1,0 +1,103 @@
+stages:
+  - test
+  - prebuild
+  - build
+  - deploy
+
+variables:
+  DOCKER_REGISTRY_DEV: 236490864883.dkr.ecr.ap-northeast-2.amazonaws.com
+  #DOCKER_REGISTRY_PROD: 697604705481.dkr.ecr.ap-northeast-2.amazonaws.com
+  APP_NAME_DEV: btg-dev-velyvely-partner-mobile
+  #APP_NAME_PROD: btg-prod-velyvely-mobile
+  APP_VERSION: $CI_COMMIT_SHORT_SHA
+  CLUSTER_NAME_DEV: cluster-btg-dev-split
+  #CLUSTER_NAME_PROD: cluster-btg-prod-split
+  SERVICE_NAME_DEV: sg-btg-dev-velyvely-partner-mobile
+  #SERVICE_NAME_PROD: sg-btg-prod-velyvely-mobile
+  TASK_DEFINITION_DEV: task-btg-dev-velyvely-partner-mobile
+  #TASK_DEFINITION_PROD: task-btg-prod-velyvely-mobile
+  
+build_test:
+  stage: build
+  script: 
+    - echo "Building the app"
+    - yarn
+    - yarn build
+  only:
+    - merge_requests
+
+prebuild_develop:
+  stage: prebuild
+  script:
+   - echo "Loggin in to Amazon ECR...(development)"
+   - aws ecr get-login-password --profile DEV --region ap-northeast-2 | docker login --username AWS --password-stdin $DOCKER_REGISTRY_DEV
+  only: 
+    - develop
+
+# prebuild_main:
+#   stage: prebuild
+#   script:
+#    - echo "Loggin in to Amazon ECR...(production)"
+#    - aws ecr get-login-password --profile PROD --region ap-northeast-2 | docker login --username AWS --password-stdin $DOCKER_REGISTRY_PROD
+#   only: 
+#     - main   
+
+build_develop:
+  stage: build
+  script: 
+    - echo "Building the apps(development)"
+    - whoami
+#    - yarn install
+#    - yarn build && yarn
+    - docker build -t $DOCKER_REGISTRY_DEV/$APP_NAME_DEV:latest --build-arg ENVIRONMENT=dev .
+    - docker tag $DOCKER_REGISTRY_DEV/$APP_NAME_DEV:latest $DOCKER_REGISTRY_DEV/$APP_NAME_DEV:$APP_VERSION
+  after_script:
+    - docker rmi -f $(docker images -f "dangling=true" -q)  
+  only:
+    - develop 
+
+# build_main:
+#   stage: build
+#   script: 
+#     - echo "Building the apps(production)"
+#     - whoami
+# #    - yarn install
+# #    - yarn build && yarn
+#     - docker build -f Dockerfile.production -t $DOCKER_REGISTRY_PROD/$APP_NAME_PROD:latest --build-arg ENVIRONMENT=prod .
+#     - docker tag $DOCKER_REGISTRY_PROD/$APP_NAME_PROD:latest $DOCKER_REGISTRY_PROD/$APP_NAME_PROD:$APP_VERSION
+#   after_script:
+#     - docker rmi $(docker images -f "dangling=true" -q)  
+#   only:
+#     - main 
+
+deploy_develop:
+  stage: deploy
+  script:
+    - echo "Deploy ECS to development servers"
+    - docker push $DOCKER_REGISTRY_DEV/$APP_NAME_DEV:latest
+    - docker push $DOCKER_REGISTRY_DEV/$APP_NAME_DEV:$APP_VERSION
+#    - aws ecs register-task-definition --cli-input-json file://$TASK_DEFINITION.json
+    - aws ecs update-service --cluster $CLUSTER_NAME_DEV --service $SERVICE_NAME_DEV --task-definition $TASK_DEFINITION_DEV --force-new-deployment --profile DEV
+  after_script:
+    - docker rmi $DOCKER_REGISTRY_DEV/$APP_NAME_DEV:$APP_VERSION  
+  environment:
+    name: development
+    url: https://partner.velyvelydev.com
+  only:
+    - develop
+
+# deploy_main:
+#   stage: deploy
+#   script:
+#     - echo "Deploy ECS to production servers"
+#     - docker push $DOCKER_REGISTRY_PROD/$APP_NAME_PROD:latest
+#     - docker push $DOCKER_REGISTRY_PROD/$APP_NAME_PROD:$APP_VERSION
+# #    - aws ecs register-task-definition --cli-input-json file://$TASK_DEFINITION.json
+#     - aws ecs update-service --cluster $CLUSTER_NAME_PROD --service $SERVICE_NAME_PROD --task-definition $TASK_DEFINITION_PROD --force-new-deployment --profile PROD
+#   after_script:
+#     - docker rmi $DOCKER_REGISTRY_PROD/$APP_NAME_PROD:$APP_VERSION  
+#   environment:
+#     name: production
+#     url: https://m.velyvelystg.com
+#   only:
+#     - main

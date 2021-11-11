@@ -1,0 +1,12 @@
+**/node_modules/**
+**/dist/**
+**/storybook-static/**
+**/coverage/**
+**/build/**
+**/.git/**
+**/public/**
+!.eslintrc.js
+config-overrides.js
+serviceWorker.*
+tableau-api.js
+*/reportWebVitals.ts
