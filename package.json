@@ -70,5 +70,8 @@
 		"eslint-plugin-react-hooks": "^4.2.0",
 		"eslint-plugin-simple-import-sort": "^7.0.0",
 		"prettier": "^2.4.1"
+	},
+	"resolutions": {
+		"node-forge": "^1.4.4"
 	}
 }
